@@ -2,16 +2,83 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Multi-Media Recorder Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Remote Monitor</title>
+    <script src="https://unpkg.com"></script>
     <style>
-        :root { --primary: #007aff; --danger: #ff3b30; --bg: #000; }
-        body { margin: 0; background: var(--bg); color: white; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; }
+        video { width: 100%; max-width: 600px; background: #111; border-radius: 10px; margin-top: 20px; }
+        .controls { padding: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        button { padding: 15px; width: 80%; max-width: 300px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-send { background: #28a745; color: white; }
+        .btn-view { background: #007bff; color: white; }
+        #peer-id-display { margin: 10px; font-family: monospace; color: #fbff00; }
+    </style>
+</head>
+<body>
+
+    <h2>Remote Monitor</h2>
+    <div id="peer-id-display">Menghubungkan ke server...</div>
+
+    <video id="remoteVideo" autoplay playsinline></video>
+
+    <div class="controls">
+        <p>--- MODE PENGIRIM (HP Target) ---</p>
+        <button class="btn-send" onclick="startStreaming('user')">Kirim Kamera Depan</button>
+        <button class="btn-send" onclick="startStreaming('screen')">Kirim Layar HP</button>
         
-        /* Header & Status */
-        .header { padding: 20px; text-align: center; background: rgba(255,255,255,0.05); z-index: 10; }
-        #timer { font-size: 24px; font-weight: bold; color: var(--danger); display: none; margin-bottom: 5px; }
-        #status { font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: #888; }
+        <p>--- MODE PENONTON (HP Anda) ---</p>
+        <input type="text" id="targetId" placeholder="Masukkan ID HP Target" style="padding:10px; width:75%; border-radius:5px;">
+        <button class="btn-view" onclick="connectToPeer()">Lihat Perangkat Lain</button>
+    </div>
+
+    <script>
+        const peer = new Peer(); // Membuat ID unik otomatis
+        let localStream;
+
+        // Menampilkan ID perangkat ini
+        peer.on('open', (id) => {
+            document.getElementById('peer-id-display').innerText = "ID PERANGKAT INI: " + id;
+        });
+
+        // Menangani panggilan masuk (ketika penonton terhubung)
+        peer.on('call', (call) => {
+            call.answer(localStream);
+            call.on('stream', (stream) => {
+                document.getElementById('remoteVideo').srcObject = stream;
+            });
+        });
+
+        // Fungsi Mengirim Video (Kamera/Layar)
+        async function startStreaming(type) {
+            try {
+                if (type === 'screen') {
+                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                } else {
+                    localStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: type }, audio: true });
+                }
+                document.getElementById('remoteVideo').srcObject = localStream;
+                alert("Siap! Sekarang masukkan ID ini di HP Penonton.");
+            } catch (err) {
+                alert("Gagal akses media: " + err);
+            }
+        }
+
+        // Fungsi Menonton Perangkat Lain
+        function connectToPeer() {
+            const targetId = document.getElementById('targetId').value;
+            if (!targetId) return alert("Masukkan ID dulu!");
+            
+            // Melakukan panggilan kosong untuk memicu pertukaran stream
+            const call = peer.call(targetId, new MediaStream()); 
+            call.on('stream', (stream) => {
+                document.getElementById('remoteVideo').srcObject = stream;
+                document.getElementById('status').innerText = "MENONTON LIVE...";
+            });
+        }
+    </script>
+</body>
+</html>
 
         /* Preview Video */
         .preview-area { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #111; }
