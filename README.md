@@ -3,15 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Remote Monitor</title>
+    <title>Fixed Remote Monitor</title>
     <script src="https://unpkg.com"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; }
-        video { width: 100%; max-width: 600px; background: #111; border-radius: 10px; margin-top: 20px; }
-        .controls { padding: 20px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        button { padding: 15px; width: 80%; max-width: 300px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-send { background: #28a745; color: white; }
-        .btn-view { background: #007bff; color: white; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 10px; }
+        video { width: 100%; max-width: 500px; background: #222; border-radius: 12px; margin: 15px 0; border: 2px solid #444; }
+        .box { background: #1a1a1a; padding: 20px; border-radius: 15px; margin-bottom: 10px; }
+        button { padding: 15px; width: 100%; margin: 5px 0; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
+        .btn-green { background: #28a745; color: white; }
+        .btn-blue { background: #007bff; color: white; }
+        input { width: 90%; padding: 15px; border-radius: 10px; border: 1px solid #444; background: #333; color: white; margin-bottom: 10px; }
+        #my-id { color: #fbff00; font-weight: bold; font-size: 18px; word-break: break-all; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <p>ID PERANGKAT INI:</p>
+        <div id="my-id">Menghubungkan...</div>
+    </div>
+
+    <video id="mainVideo" autoplay playsinline muted></video>
+
+    <div class="box">
+        <p><strong>LANGKAH 1:</strong> HP Target Klik Ini</p>
+        <button class="btn-green" onclick="setupStream('user')">Aktifkan Kamera</button>
+        <button class="btn-green" onclick="setupStream('screen')">Aktifkan Layar</button>
+    </div>
+
+    <div class="box">
+        <p><strong>LANGKAH 2:</strong> HP Penonton Masukkan ID Target</p>
+        <input type="text" id="remoteId" placeholder="Tempel ID Target di sini">
+        <button class="btn-blue" onclick="callTarget()">HUBUNGKAN & LIHAT</button>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        let localMediaStream = null;
+
+        // Mendapatkan ID unik perangkat ini
+        peer.on('open', id => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // Menyiapkan Kamera/Layar di HP Target
+        async function setupStream(type) {
+            try {
+                if (type === 'screen') {
+                    localMediaStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                } else {
+                    localMediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: type }, audio: true });
+                }
+                document.getElementById('mainVideo').srcObject = localMediaStream;
+                alert("Kamera Aktif! Silakan hubungkan dari HP lain menggunakan ID di atas.");
+            } catch (err) {
+                alert("Gagal akses: " + err.message);
+            }
+        }
+
+        // Menjawab panggilan otomatis (Sisi HP Target)
+        peer.on('call', call => {
+            if (localMediaStream) {
+                call.answer(localMediaStream);
+                console.log("Mengirim stream ke penonton...");
+            } else {
+                alert("Error: Aktifkan kamera dulu di HP ini sebelum dihubungkan!");
+            }
+        });
+
+        // Menghubungkan ke HP Target (Sisi HP Penonton)
+        function callTarget() {
+            const id = document.getElementById('remoteId').value;
+            if (!id) return alert("Isi ID Target!");
+
+            // Melakukan panggilan kosong untuk memancing respon stream
+            const call = peer.call(id, new MediaStream());
+            call.on('stream', remoteStream => {
+                document.getElementById('mainVideo').srcObject = remoteStream;
+                document.getElementById('mainVideo').muted = false; // Aktifkan suara dari target
+            });
+        }
+    </script>
+</body>
+</html>
         #peer-id-display { margin: 10px; font-family: monospace; color: #fbff00; }
     </style>
 </head>
