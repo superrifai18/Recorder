@@ -2,16 +2,118 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fixed Remote Monitor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Remote Monitor v2 - Auto Copy</title>
     <script src="https://unpkg.com"></script>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; text-align: center; padding: 10px; }
-        video { width: 100%; max-width: 500px; background: #222; border-radius: 12px; margin: 15px 0; border: 2px solid #444; }
-        .box { background: #1a1a1a; padding: 20px; border-radius: 15px; margin-bottom: 10px; }
-        button { padding: 15px; width: 100%; margin: 5px 0; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; }
-        .btn-green { background: #28a745; color: white; }
-        .btn-blue { background: #007bff; color: white; }
+        :root { --primary: #007aff; --success: #28a745; --bg: #000; --card: #1c1c1e; }
+        body { margin: 0; background: var(--bg); color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; padding-bottom: 30px; }
+        
+        .container { width: 90%; max-width: 500px; margin-top: 20px; }
+        .card { background: var(--card); padding: 20px; border-radius: 15px; margin-bottom: 15px; text-align: center; border: 1px solid #333; }
+        
+        #my-id { font-family: monospace; font-size: 18px; color: #fbff00; background: #000; padding: 10px; border-radius: 8px; margin: 10px 0; word-break: break-all; border: 1px dashed #555; }
+        
+        video { width: 100%; border-radius: 12px; background: #000; box-shadow: 0 5px 20px rgba(0,0,0,0.5); margin: 10px 0; }
+        
+        button { width: 100%; padding: 15px; margin: 5px 0; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        button:active { transform: scale(0.98); opacity: 0.8; }
+        
+        .btn-copy { background: #444; color: white; margin-top: 5px; }
+        .btn-stream { background: var(--success); color: white; }
+        .btn-view { background: var(--primary); color: white; }
+        
+        input { width: 100%; padding: 15px; border-radius: 10px; border: 1px solid #444; background: #2c2c2e; color: white; box-sizing: border-box; margin-bottom: 10px; }
+        .status { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- SEKSI ID SAYA -->
+        <div class="card">
+            <span class="status">ID PERANGKAT ANDA</span>
+            <div id="my-id">Menghubungkan ke server...</div>
+            <button class="btn-copy" onclick="copyID()">Salin ID Saya</button>
+        </div>
+
+        <video id="mainDisplay" autoplay playsinline muted></video>
+
+        <!-- SEKSI PENGIRIM (TARGET) -->
+        <div class="card">
+            <span class="status">MODE PENGIRIM (HP TARGET)</span>
+            <button class="btn-stream" onclick="startSource('user')">Aktifkan Kamera Selfie</button>
+            <button class="btn-stream" onclick="startSource('screen')">Aktifkan Layar HP</button>
+        </div>
+
+        <!-- SEKSI PENONTON -->
+        <div class="card">
+            <span class="status">MODE PENONTON (LIHAT HP LAIN)</span>
+            <input type="text" id="targetPeerId" placeholder="Tempel ID HP Target di sini">
+            <button class="btn-view" onclick="connectToTarget()">LIHAT LIVE SEKARANG</button>
+        </div>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        let localStream = null;
+
+        // Mendapatkan ID saat koneksi ke server PeerJS sukses
+        peer.on('open', id => {
+            document.getElementById('my-id').innerText = id;
+        });
+
+        // Fungsi Salin ID ke Clipboard
+        function copyID() {
+            const idText = document.getElementById('my-id').innerText;
+            navigator.clipboard.writeText(idText).then(() => {
+                alert("ID Berhasil Disalin! Kirimkan ke HP Penonton.");
+            });
+        }
+
+        // Aktifkan Kamera atau Layar (HP Target)
+        async function startSource(type) {
+            try {
+                if (type === 'screen') {
+                    localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                } else {
+                    localStream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: type }, 
+                        audio: true 
+                    });
+                }
+                document.getElementById('mainDisplay').srcObject = localStream;
+                alert("Berhasil! Sekarang biarkan halaman ini terbuka & minta HP Penonton hubungkan ID Anda.");
+            } catch (err) {
+                alert("Gagal akses: " + err.message + "\nPastikan menggunakan HTTPS!");
+            }
+        }
+
+        // Otomatis balas jika ada panggilan masuk (Sisi Target)
+        peer.on('call', call => {
+            if (localStream) {
+                call.answer(localStream);
+            } else {
+                alert("Ada koneksi masuk, tapi kamera Anda belum aktif!");
+            }
+        });
+
+        // Menghubungkan ke Target (Sisi Penonton)
+        function connectToTarget() {
+            const targetId = document.getElementById('targetPeerId').value;
+            if (!targetId) return alert("Masukkan ID Target terlebih dahulu!");
+
+            // Melakukan panggilan dengan media stream kosong untuk memancing respon
+            const call = peer.call(targetId, new MediaStream());
+            call.on('stream', remoteStream => {
+                const video = document.getElementById('mainDisplay');
+                video.srcObject = remoteStream;
+                video.muted = false; // Aktifkan suara dari HP target
+            });
+        }
+    </script>
+</body>
+</html>
         input { width: 90%; padding: 15px; border-radius: 10px; border: 1px solid #444; background: #333; color: white; margin-bottom: 10px; }
         #my-id { color: #fbff00; font-weight: bold; font-size: 18px; word-break: break-all; }
     </style>
